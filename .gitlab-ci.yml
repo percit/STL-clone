@@ -2,10 +2,12 @@ variables:
   GIT_SUBMODULE_STRATEGY: recursive
 
 stages:
-  - test_qt5
+  - build
+  - test
+  - deploy
 
-Test_qt5:
-  stage: test_qt5
+build_job:
+  stage: build
   image:
     name: "carlonluca/qt-dev:5.15.2"
     entrypoint: [""]
@@ -14,4 +16,20 @@ Test_qt5:
     - cd build
     - cmake ..
     - make -j16
-   # - ./HelloWorld
+  artifacts:
+    paths:
+      - build/HelloWorld
+    expire_in: 1 week
+
+
+test_job:
+  stage: test
+  script:
+    - echo "here you run tests"
+
+deploy_job:
+  stage: deploy
+  script:
+    - echo "deploy your executable"
+  dependencies:
+    - build_job
