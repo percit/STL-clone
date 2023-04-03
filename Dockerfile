@@ -1,15 +1,9 @@
-FROM ubuntu:20.04
+FROM carlonluca/qt-dev:5.15.8-lts-lgpl
 
-# Install dependencies
-# Clone the "Hello World" application from the Qt GitHub repository
-RUN git clone https://github.com/qt/qtbase.git && \
-    cd qtbase/examples/widgets/widgets/hello
+RUN mkdir /app
+COPY . /app
+WORKDIR /app
 
-# Build the application using CMake
-RUN mkdir build && \
-    cd build && \
+RUN mkdir build && cd build && \
     cmake .. && \
     make -j16
-
-# Run the application
-CMD ["./hello"]
