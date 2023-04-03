@@ -1,0 +1,403 @@
+#+title: CI
+//to ma byc plik .yml
+//mozemy dodac .clang-format, .clang-tidy, .commit-template
+//
+
+default:
+  image: gitlab.siilicloud.com:5050/automotive/customers/qt/togg-cluster-ivi-sw/infrastructure:v20221024-1
+  interruptible: true
+
+
+* TODO:
+- [ ] check what this /togg-cluster-ivi-sw/infrastructure means
+
+
+stages:
+* check:
+** czysci brancha
+** pobiera najnowsza wersje
+** instaluje jakies paczki przez apt-get
+* build-testing:
+** odpala qmake (zwykly gcc64) na plik .pro i daje flage UNIT_TEST=1
+* test
+* analyze
+* build
+* publish
+* release
+
+variables:
+  GIT_SUBMODULE_STRATEGY: recursive
+  BUILD_LINUX_X86_64_TESTING_DIR_NAME: 'build-linux-x86_64-testing'
+
+.build-job:
+  tags:
+    - docker
+    - linux
+  rules:
+* TODO check these rules
+    - if: $CI_MERGE_REQUEST_EVENT_TYPE == "detached"
+      when: never # it prevents gitlab from creating copy of pipeline not attached to MR
+    - if: $CI_COMMIT_REF_NAME != $CI_DEFAULT_BRANCH && $CI_COMMIT_REF_NAME !~ /^release\
+      variables:
+        CCACHE_DIR: "/ccache" # this is configured in runners, runner mounts local dir to the containers
+        QMAKE_CCACHE_ARG: "CONFIG+=ccache"
+    - when: on_success
+
+before_script:
+* TODO I think all of these are mostly for android build
+  - >
+    sed -i
+    -e 's/sdkman_auto_selfupdate=true/sdkman_auto_selfupdate=false/'
+    -e 's/sdkman_selfupdate_feature=true/sdkman_selfupdate_feature=false/'
+    -e 's/sdkman_auto_update=true/sdkman_auto_update=false/'
+    /root/.sdkman/etc/config
+  - source "/root/.sdkman/bin/sdkman-init.sh"
+  - sdk use java 11.0.10.hs-adpt
+  - sdk use gradle 6.8.2
+  - source "/opt/qnx700/qnxsdp-env.sh"
+  - git lfs fetch && git lfs pull
+  - python3 -m pip install -r requirements.txt
+* TODO for code generators
+
+check:all:
+  stage: check
+  dependencies: []
+  tags:
+    - docker
+    - linux
+  script:
+    - git lfs install
+    - git reset --hard HEAD
+    - git submodule update --init --checkout --force --recursive
+    - git lfs pull
+    - git clean -dfx
+    - git diff --name-only HEAD
+    - apt-get -y update && apt-get -y install x11-utils mesa-utils imagemagick-6.q16
+    - ./dev/ci/run-checks.sh
+* TODO this can be important, this probably runs a lot of scripts to have either checks, build android or keyboard
+
+build-testing:linux-x86_64:
+  stage: build-testing
+  extends: .build-job
+  script:
+    - mkdir -p $BUILD_LINUX_X86_64_TESTING_DIR_NAME && cd $BUILD_LINUX_X86_64_TESTING_DIR_NAME
+    - $QT_HOME/gcc_64/bin/qmake $CI_PROJECT_DIR/idcc-hmi.pro UNIT_TESTS=1 $QMAKE_CCACHE_ARG
+    - XDG_RUNTIME_DIR=/tmp QT_QPA_PLATFORM=minimal make -j6 -s
+  artifacts:
+    name: "$CI_JOB_NAME-$CI_COMMIT_REF_NAME"
+    when: on_success
+    expire_in: 1 hour
+    paths:
+      - $BUILD_LINUX_X86_64_TESTING_DIR_NAME
+    exclude:
+      - $BUILD_LINUX_X86_64_TESTING_DIR_NAME/**/*.a
+      - $BUILD_LINUX_X86_64_TESTING_DIR_NAME/**/*.c
+      - $BUILD_LINUX_X86_64_TESTING_DIR_NAME/**/*.cpp
+      - $BUILD_LINUX_X86_64_TESTING_DIR_NAME/**/*.h
+      - $BUILD_LINUX_X86_64_TESTING_DIR_NAME/**/*.java
+      - $BUILD_LINUX_X86_64_TESTING_DIR_NAME/**/*.moc
+      - $BUILD_LINUX_X86_64_TESTING_DIR_NAME/**/*.o
+      - $BUILD_LINUX_X86_64_TESTING_DIR_NAME/**/*.rcc
+      - $BUILD_LINUX_X86_64_TESTING_DIR_NAME/**/rep
+
+build:documentation:
+  image: gitlab.siilicloud.com:5050/automotive/customers/qt/togg-cluster-ivi-sw/infrastructure:tools-master
+* TODO check what's tools-master
+  before_script: []
+  stage: build
+  dependencies: []
+  tags:
+    - docker
+    - linux
+  artifacts:
+    name: "$CI_JOB_NAME-$CI_COMMIT_REF_SLUG"
+    paths:
+      - doxygen
+    expire_in: 4 days
+  script:
+  - doxygen
+* TODO tu zaczynaja sei testy
+tests:gtest:qnx:
+  stage: test
+  dependencies: []
+  tags:
+    - docker
+    - linux
+  artifacts:
+    name: "$CI_JOB_NAME-$CI_COMMIT_REF_SLUG"
+    paths:
+      - tests.tar.gz
+    expire_in: 4 days
+  extends: .build-job
+  script:
+    - mkdir -p build_gtest_qnx && cd build_gtest_qnx
+    - $CI_PROJECT_DIR/dev/scripts/make_qnx_tests.sh
+
+tests:gtest:qnx:run:
+  stage: test
+  before_script: []
+  allow_failure: true
+  interruptible: false
+  needs:
+    - tests:gtest:qnx
+  dependencies:
+    - tests:gtest:qnx
+  artifacts:
+    name: "$CI_JOB_NAME-$CI_COMMIT_REF_SLUG"
+    reports:
+      junit: "*.xml"
+    expire_in: 4 days
+    paths:
+      - "*.xml"
+  tags:
+    - linux
+    - native
+    - target
+  when: manual
+  script:
+    - ./dev/scripts/upload_and_run_tests.sh | tee temp.txt
+* TODO z tego co widze ten skrypt wrzuca cos na target i juz tam to testuje
+    - FAILS=$(cat "temp.txt" | grep " FAILED TESTS")
+    - |
+      if [ -n "$FAILS" ]; then \
+        printf "Some tests failed!"; \
+        exit 1;\
+      else \
+        echo "Everything is fine!"; \
+      fi
+
+tests:ivi-smoke:desktop:
+  stage: test
+  needs:
+    - build-testing:linux-x86_64
+  dependencies:
+    - build-testing:linux-x86_64
+  extends: .build-job
+  before_script:
+    - apt-get -y install x11-utils netcat-openbsd python3.8-dev python3.8
+    - python3.8 -m pip install -r requirements.txt
+  script:
+    - cd $BUILD_LINUX_X86_64_TESTING_DIR_NAME
+    - $CI_PROJECT_DIR/dev/smoke/run.sh .
+
+tests:ic-smoke:desktop:
+  stage: test
+  needs:
+    - build-testing:linux-x86_64
+  dependencies:
+    - build-testing:linux-x86_64
+  extends: .build-job
+  before_script:
+    - apt-get -y install x11-utils netcat-openbsd python3.8-dev python3.8
+    - python3.8 -m pip install -r requirements.txt
+  script:
+    - cd $BUILD_LINUX_X86_64_TESTING_DIR_NAME
+    - $CI_PROJECT_DIR/dev/smoke/run.sh . ic
+* TODO tu jest ten ic, nie do konca wiem do czego
+
+
+tests:ivi:desktop:
+  stage: test
+  needs:
+    - build-testing:linux-x86_64
+  dependencies:
+    - build-testing:linux-x86_64
+  extends: .build-job
+  artifacts:
+    name: "$CI_JOB_NAME-$CI_COMMIT_REF_SLUG"
+    reports:
+      junit: $BUILD_LINUX_X86_64_TESTING_DIR_NAME/src/ivi/test/result.xml
+    expire_in: 4 days
+    paths:
+      - tests-desktop.xml
+  script:
+    - cd $BUILD_LINUX_X86_64_TESTING_DIR_NAME
+    - Xvfb :1 &
+    - export DISPLAY=:1
+    - export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$PWD/src/lib/
+    - make -t
+    - TESTARGS="-platform minimal -o -,txt -o result.xml,junitxml -v1" make check -k -j1 -s
+    - cp src/ivi/test/result.xml $CI_PROJECT_DIR/tests-desktop.xml
+
+tests:translations:
+  stage: test
+  needs:
+    - build-testing:linux-x86_64
+  dependencies:
+    - build-testing:linux-x86_64
+  extends: .build-job
+  script:
+    - make -C $BUILD_LINUX_X86_64_TESTING_DIR_NAME/src/translation translation_release
+    - TRANSLATION_CHANGES=$(git status $CI_PROJECT_DIR/src/translation/translations/ | grep "modified" || true)
+    - |
+      if [ -n "$TRANSLATION_CHANGES" ]; then \
+        echo -e "\e[31mError: Translation files are not updated properly!"; \
+        exit 1;\
+      fi
+* TODO polyspace to error checker
+analyze:polyspace:qnx:
+  image: gitlab.siilicloud.com:5050/automotive/customers/qt/togg-cluster-ivi-sw/infrastructure:polyspace-master
+  stage: analyze
+  allow_failure: true
+  rules:
+  - if: $CI_MERGE_REQUEST_EVENT_TYPE == "detached"
+    when: never # it prevents gitlab from creating copy of pipeline not attached to MR
+  - when: manual
+  dependencies: []
+  tags:
+    - docker
+    - linux
+  artifacts:
+    name: "$CI_JOB_NAME-$CI_COMMIT_REF_SLUG"
+    paths:
+      - polyspace-qnx-report
+    expire_in: 4 days
+  script:
+    - ./dev/scripts/run_polyspace.sh
+
+build:android:production:
+  stage: build
+  dependencies: []
+  extends: .build-job
+  needs:
+  - tests:ivi:desktop
+  script:
+    - TOGG_BUILD_ANDROID_MAX_JOB_COUNT=6 $CI_PROJECT_DIR/dev/ci/build_android.sh $CI_PROJECT_DIR/ivi-ui.apk
+  artifacts:
+    name: "$CI_JOB_NAME-$CI_COMMIT_REF_SLUG"
+    paths:
+      - ivi-ui.apk
+    expire_in: 4 days
+
+build:android:squish:
+  stage: build
+  dependencies: []
+  extends: .build-job
+  needs:
+  - tests:ivi:desktop
+  script:
+    - USE_SQUISH_HOOK=1 $CI_PROJECT_DIR/dev/ci/build_android.sh $CI_PROJECT_DIR/ivi-ui-squish.apk
+  artifacts:
+    name: "$CI_JOB_NAME-$CI_COMMIT_REF_SLUG"
+    paths:
+      - ivi-ui-squish.apk
+    expire_in: 4 days
+
+build:android:idcc-ivi-softwarekeyboard:
+  stage: build
+  dependencies: []
+  extends: .build-job
+  script:
+     - ./dev/ci/build-idcc-ivi-keyboard.sh
+  artifacts:
+    name: "$CI_JOB_NAME-$CI_COMMIT_REF_SLUG"
+    paths:
+      - idcc-ivi-softwarekeyboard.apk
+    expire_in: 4 days
+
+build:cluster:
+  stage: build
+  dependencies: []
+  extends: .build-job
+  needs:
+    - tests:gtest:qnx
+    - tests:ivi:desktop
+  script:
+    - mkdir build_cluster && cd build_cluster
+    - Xvfb :1 &
+    - export DISPLAY=:1
+    - $QT_HOME/qnx7_armv8/bin/qmake $CI_PROJECT_DIR/idcc-hmi.pro $QMAKE_CCACHE_ARG
+    - make -j6
+    - mkdir -p $CI_PROJECT_DIR/cluster_output
+    - mv src/cluster-ui $CI_PROJECT_DIR/cluster_output/
+    - mv src/idcc_services_server $CI_PROJECT_DIR/cluster_output/
+    - mv src/seatbelt_reminder_system/seatbelt_reminder_system $CI_PROJECT_DIR/cluster_output/
+    - mv src/vip_gateway/vip_gateway $CI_PROJECT_DIR/cluster_output/
+    - find . -name "libtogg_*.so*" | xargs -n1 -I{} mv {} $CI_PROJECT_DIR/cluster_output/
+    - chmod 777 $CI_PROJECT_DIR/cluster_output/*.so
+    - mv src/qt $CI_PROJECT_DIR/cluster_output/
+    - mv src/translation/translations $CI_PROJECT_DIR/cluster_output/
+    - mv src/tools/ddstool/ddstool $CI_PROJECT_DIR/cluster_output/
+    - mv src/tools/spisim/spisim $CI_PROJECT_DIR/cluster_output/
+  artifacts:
+    name: "$CI_JOB_NAME-$CI_COMMIT_REF_SLUG"
+    paths:
+      - cluster_output
+    expire_in: 4 days
+
+publish:
+  stage: publish
+  dependencies:
+  - build:cluster
+  - build:android:production
+  - build:android:squish
+  - build:android:idcc-ivi-softwarekeyboard
+  - tests:gtest:qnx
+  tags:
+    - docker
+    - linux
+  needs:
+  - build:cluster
+  - build:android:idcc-ivi-softwarekeyboard
+  - build:android:production
+  - build:android:squish
+  - tests:gtest:qnx
+  artifacts:
+    name: "$CI_JOB_NAME-$CI_COMMIT_REF_SLUG"
+    paths:
+      - idcc-ivi-softwarekeyboard.apk
+      - ivi-ui.apk
+      - ivi-ui-squish.apk
+      - "*.tar.gz"
+    expire_in: 4 days
+  script:
+    - mkdir qnx_apps
+    - dev/scripts/prepare_cluster_release.sh cluster_output qnx_apps extras "cluster_${CI_COMMIT_TAG:-$CI_COMMIT_SHORT_SHA}"
+
+publish:flash:wroclaw:
+  stage: publish
+  before_script: []
+  interruptible: false
+  needs:
+    - publish
+  dependencies:
+    - publish
+  tags:
+    - linux
+    - native
+    - target
+  allow_failure: true
+  when: manual
+  script:
+    - ./dev/scripts/upload_and_run_release.sh "cluster_${CI_COMMIT_TAG:-$CI_COMMIT_SHORT_SHA}" "$CI_COMMIT_REF_NAME $CI_COMMIT_SHA" devtools
+
+release:
+  image: gitlab.siilicloud.com:5050/automotive/customers/qt/togg-cluster-ivi-sw/infrastructure:confluence-master
+  before_script: []
+  stage: release
+  dependencies:
+  - tests:ivi:desktop
+  - tests:gtest:qnx
+  - analyze:polyspace:qnx
+  - build:documentation
+  - publish
+  artifacts:
+    name: "$CI_JOB_NAME-$CI_COMMIT_REF_SLUG"
+    paths:
+      - tests-desktop.xml
+      - gcov-desktop
+      - polyspace-qnx-report
+      - ivi-ui.apk
+      - docs
+      - doxygen
+      - "*.tar.gz"
+    expire_in: 7 days
+  script:
+    - mkdir -p ./downloads && chmod o+w ./downloads
+    - /confluence
+    - mkdir docs
+    - mv downloads/* docs
+    - cd docs
+    - git --no-pager log --format='%H= %s %n %b' "$(git describe --tags --abbrev=0 @^)..@" > "${CI_COMMIT_TAG:-NO_TAG}.txt"
+  only:
+    - tags
