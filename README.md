@@ -1,92 +1,129 @@
-# CI_temp_lab
+# C++ Template
+This is a C++ project template that you can use as a starting point for setting up your new project in GitLab, or use it as a reference if you would like to setup a CI Pipeline in your existing GitLab project.
 
+## Requirements
+- **Compiler:** g++-12
+- **Build tool:** [cmake](https://cmake.org/)
+- **Tests:** [GoogleTest](https://google.github.io/googletest/) (gtest, gmock), [CTest](https://cmake.org/cmake/help/latest/manual/ctest.1.html)
+- **Static Analysis:** Clang-tidy, Clang-format
 
+## Build project (with Docker)
 
-## Getting started
+To build this project inside a docker container, you have to have a docker image, which can be downloaded from Gitlab Docker Registry from [Cpp Builder project](https://gitlab.siilicloud.com/automotive/containers/cpp-builder).
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+Please follow those commands to build the project:
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
-
+1. Clone repository:
+```bash
+git clone git@gitlab.siilicloud.com:automotive/project-templates/cpp-template.git
 ```
-cd existing_repo
-git remote add origin https://gitlab.siilicloud.com/marcin.zdunek/ci_temp_lab.git
-git branch -M main
-git push -uf origin main
+2. Change directory into the project:
+```bash
+cd cpp-template
+```
+3. Run docker container (it will pull also the image from registry):
+```bash
+./tools/run-docker.sh
+```
+4. Once you will be inside the container you can build the project, by running `build.sh` script:
+```bash
+./tools/build.sh
+```
+or by running following commands:
+```bash
+cmake -S . -B build/ -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-std=c++17" -DCMAKE_CXX_COMPILER=g++-12 -DBUILD_TESTS=ON
+cmake --build build/
 ```
 
-## Integrate with your tools
+## Static analysis
 
-- [ ] [Set up project integrations](https://gitlab.siilicloud.com/marcin.zdunek/ci_temp_lab/-/settings/integrations)
+In Code Quality you can see raports what is wrong, if you would like to run them locally use scripts from 'tools' directory.
 
-## Collaborate with your team
+To run static analysis you can change .clang-tidy and .clang-format and run scripts clang-tidy.sh and clang-format.sh. For scripts to work, you have to run "chmod +x" before adding to repository, running those in .yaml script won't work.
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Automatically merge when pipeline succeeds](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+## Tests
 
-## Test and Deploy
+Runs the unit tests for C++ code using the Google Test framework and generates a JUnit XML report.
 
-Use the built-in continuous integration in GitLab.
+### CI Configuration
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing(SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+To configure the test stage in CI pipeline, and enable or disable it, you can modify `RUN_TESTS` variable in `.gitlab-ci.yml` file.
 
-***
+For example:
+```yml
+variables:
+  ...
+  RUN_TESTS: "OFF" # turn off Test job in CI pipeline
+```
 
-# Editing this README
+### CI Test Report
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thank you to [makeareadme.com](https://www.makeareadme.com/) for this template.
+Tests stage generates an XML report that can be used to view the results of the unit tests. The reports are saved in `build/tests/reports/` directory **by default**, and all files that are in this directory and follow "`test_report-*.xml`" naming pattern are saved as an artifact and are available for download in the GitLab pipeline job.
 
-## Suggestions for a good README
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+You can also view the test report in the GitLab UI by navigating to the pipeline job and clicking on the `Tests` tab.
 
-## Name
-Choose a self-explaining name for your project.
+### Modify tests report path in CI
+To specify custom test report path you have to change the value of `reports_path` **spec:input** (which is `build/tests/reports/` by default) in `.gitlab-ci.yml` file in the section where tests template is included:
+```yml
+# Include job definition templates
+include:
+  ...
+  - project: 'automotive/ci-templates'
+    ref: 'main'
+    file: 'tests-cpp.gitlab-ci.yml'
+    with:
+      reports_path: "custom/reports/path/test_report-*.xml"
+```
+Artifacts of tests reports (all XML files starting with `test_report-`) will be gathered from that path.
+Please note that this value needs to align with the path that is in your `CMakeLists.txt` where the actual test executable is saving the test report to.
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+For example:
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+```bash
+add_test(
+  NAME Test1
+  COMMAND test1 --gtest_output=xml:custom/reports/path/test_report-test1.xml
+)
+```
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+### Build tests locally
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+In order to build tests locally you have to set `DBUILD_TESTS` flag to your **cmake** command and turn them **ON** or **OFF**:
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+```bash
+-DBUILD_TESTS=ON
+```
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+So the complete cmake command for generating and building the project will look like this:
+```bash
+cmake -S . -B build/ -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-std=c++17" -DCMAKE_CXX_COMPILER=g++ -DBUILD_TESTS=ON
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+cmake --build build/
+```
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+### Running tests locally
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+To manualy run specific test locally and generate the `GTest` XML test report you can use following command:
+``` bash
+./build/tests/test1 --gtest_output="xml:build/tests/reports/test_report.xml"
+```
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+Or you can run all tests specified in `CMakeLists.txt` in your build directory by running `ctest` tool:
+``` bash
+ctest ctest --test-dir build/ --output-on-failure
+```
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+To generate `ctest` JUnit XML test report use following command:
+``` bash
+ctest ctest --test-dir build/ --output-on-failure --output-junit reports/test_report.xml
+```
 
-## License
-For open source projects, say how it is licensed.
+### Troubleshooting
+If the tests stage fails, check the GitLab pipeline logs and the `test_report-*.xml` file for error messages and failed tests.
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+Make sure that your C++ code and test cases are written correctly and that the CMake command and custom test runner are configured properly.
+
+## Adding aditional jobs
+
+If you want to add new job, you have to add name to "stages" and add new job, if you want to delete one, you have to delete the job itself, and the name from stages.
+
