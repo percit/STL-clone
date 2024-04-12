@@ -1,8 +1,11 @@
 #include <gtest/gtest.h>
+#include "uniquePtr.h"
 
 TEST(MyTestSuite, TestOnePlusOne)
 {
-  EXPECT_EQ(1 + 1, 2);
+  UniquePtr<int> p;
+  p.makeUnique(42);
+  ASSERT_NE(p.get(), nullptr);
 }
 
 int main(int argc, char *argv[])

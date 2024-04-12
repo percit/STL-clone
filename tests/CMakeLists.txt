@@ -1,5 +1,7 @@
 find_package(GTest REQUIRED)
 
+include_directories(${CMAKE_SOURCE_DIR}/src)
+
 set(TEST1 "test1")
 add_executable(${TEST1}
     ../tests/test1.cpp
