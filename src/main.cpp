@@ -1,6 +1,6 @@
 #include <iostream>
 #include "uniquePtr.h"
-
+#include "sharedPtr.h"
 
 int main()
 {

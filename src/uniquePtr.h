@@ -8,16 +8,19 @@
 //guaranteeing delete on construction failure
 //you should add type traits, or sfinae or other template mechanisms just to try them out, just add some cout to them, to know you calling
 //the good functions
-
+/*
 template <typename T>
 struct DefaultDeleter {
   DefaultDeleter() = default;
   DefaultDeleter(const DefaultDeleter& other) = default;
   void operator()(T* ptr) const {delete ptr;}//using m_deleter with () overload and using it as deleter
 };
-
+*/
 
 #include <iostream>
+#include "deleter.h"
+
+
 template <typename T, typename Deleter = DefaultDeleter<T>>
 class UniquePtr {
 public:
@@ -67,7 +70,6 @@ public:
     m_ptr = ptr;
   }
 
-  //here should be a custom deleter
 private:
   T *m_ptr = nullptr;
   Deleter m_deleter = Deleter();

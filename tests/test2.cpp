@@ -1,14 +1,12 @@
 #include <gtest/gtest.h>
+#include "sharedPtr.h"
 
-int add(int a, int b)
-{
-    return a + b;
-}
 
 TEST(MathTest, AddTest)
 {
-    int result = add(2, 3);
-    ASSERT_EQ(result, 5);
+  SharedPtr<int> p;
+  p.makeShared(42);
+  ASSERT_NE(p.get(), nullptr);
 }
 
 int main(int argc, char* argv[])
