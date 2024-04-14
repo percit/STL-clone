@@ -1,13 +1,8 @@
-#ifndef UNIQUE_PTR_H
-#define UNIQUE_PTR_H
+#ifndef SHARED_PTR_H
+#define SHARED_PTR_H
 
 
-//constructor from derieved type 
-//casting to bool
-//checking if empty
-//guaranteeing delete on construction failure
-//you should add type traits, or sfinae or other template mechanisms just to try them out, just add some cout to them, to know you calling
-//the good functions
+//add counter which should go up when I use copy constructors (I think)
 
 template <typename T>
 struct DefaultDeleter {
@@ -19,34 +14,34 @@ struct DefaultDeleter {
 
 #include <iostream>
 template <typename T, typename Deleter = DefaultDeleter<T>>
-class UniquePtr {
+class SharedPtr {
 public:
-  UniquePtr(): m_ptr(nullptr) {
+  SharedPtr(): m_ptr(nullptr) {
     std::cout << "calling constructor\n";
   }
-  UniquePtr(T* ptr): m_ptr(ptr) {
+  SharedPtr(T* ptr): m_ptr(ptr) {
      ptr = nullptr;
   }
-  UniquePtr(T* ptr, Deleter deleter): m_ptr(ptr), m_deleter(deleter) {}
-  ~UniquePtr() {//here we delete
+  SharedPtr(T* ptr, Deleter deleter): m_ptr(ptr), m_deleter(deleter) {}
+  ~SharedPtr() {//here we delete
     if(m_ptr != nullptr) {
       m_deleter(m_ptr);
     }
     std::cout << "calling destructor\n";
   }
   //we delete copy, as this should not be allowed
-  UniquePtr(const UniquePtr&) = delete;
-  UniquePtr &operator=(const UniquePtr&) = delete;
+  SharedPtr(const SharedPtr&) = delete;
+  SharedPtr &operator=(const SharedPtr&) = delete;
   //move constructors
-  UniquePtr(UniquePtr&& other) noexcept : m_ptr(nullptr) {
+  SharedPtr(SharedPtr&& other) noexcept : m_ptr(nullptr) {
     this->swap(other);
   }
-  UniquePtr &operator=(UniquePtr&& other) noexcept {
-    this->swap(other);//https://codereview.stackexchange.com/questions/163854/my-implementation-for-stdunique-ptr
-    return *this;//I found here that std::move instead of std::swap can cause memory leak if this != nullptr
+  SharedPtr &operator=(SharedPtr&& other) noexcept {
+    this->swap(other);
+    return *this;
   }
 
-  void swap(UniquePtr<T>& other) noexcept {
+  void swap(SharedPtr<T>& other) noexcept {
     using std::swap;
     swap(m_ptr, other->m_ptr);
   }
@@ -74,4 +69,5 @@ private:
 };
 
 #endif
+
 
