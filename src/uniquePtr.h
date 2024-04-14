@@ -2,9 +2,11 @@
 #define UNIQUE_PTR_H
 
 
-//copy assigment and copy constructor must be deleted
-//there must be move and move assigment
-//there should be delete ptr on destructor
+//constructor from derieved type 
+//casting to bool
+//checking if empty
+//guaranteeing delete on construction failure
+//dereferencing operator
 //you should add type traits, or sfinae or other template mechanisms just to try them out, just add some cout to them, to know you calling
 //the good functions
 
