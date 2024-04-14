@@ -6,7 +6,6 @@
 //casting to bool
 //checking if empty
 //guaranteeing delete on construction failure
-//dereferencing operator
 //you should add type traits, or sfinae or other template mechanisms just to try them out, just add some cout to them, to know you calling
 //the good functions
 
@@ -17,7 +16,7 @@ public:
   UniquePtr(): m_ptr(nullptr){
     std::cout << "calling constructor\n";
   }
-  UniquePtr(T*& ptr): m_ptr(ptr) {
+  UniquePtr(T* ptr): m_ptr(ptr) {
      ptr = nullptr;
   }
   ~UniquePtr() {//here we delete
@@ -43,7 +42,8 @@ public:
     swap(m_ptr, other->m_ptr);
   }
 
-//other functions
+  T* operator->() const {return m_ptr;}
+  T& operator*() const {return *m_ptr;}
 
   void makeUnique(T value){
     m_ptr = new T(value);
