@@ -9,19 +9,28 @@
 //you should add type traits, or sfinae or other template mechanisms just to try them out, just add some cout to them, to know you calling
 //the good functions
 
-#include <iostream>
 template <typename T>
+struct DefaultDeleter {
+  DefaultDeleter() = default;
+  DefaultDeleter(const DefaultDeleter& other) = default;
+  void operator()(T* ptr) const {delete ptr;}//using m_deleter with () overload and using it as deleter
+};
+
+
+#include <iostream>
+template <typename T, typename Deleter = DefaultDeleter<T>>
 class UniquePtr {
 public:
-  UniquePtr(): m_ptr(nullptr){
+  UniquePtr(): m_ptr(nullptr) {
     std::cout << "calling constructor\n";
   }
   UniquePtr(T* ptr): m_ptr(ptr) {
      ptr = nullptr;
   }
+  UniquePtr(T* ptr, Deleter deleter): m_ptr(ptr), m_deleter(deleter) {}
   ~UniquePtr() {//here we delete
     if(m_ptr != nullptr) {
-      delete m_ptr;
+      m_deleter(m_ptr);
     }
     std::cout << "calling destructor\n";
   }
@@ -42,8 +51,8 @@ public:
     swap(m_ptr, other->m_ptr);
   }
 
-  T* operator->() const {return m_ptr;}
-  T& operator*() const {return *m_ptr;}
+  T* operator->() const noexcept {return m_ptr;}
+  T& operator*() const noexcept {return *m_ptr;}
 
   void makeUnique(T value){
     m_ptr = new T(value);
@@ -53,9 +62,15 @@ public:
     return m_ptr;
   }
 
+  void reset(T* ptr) {
+    m_deleter(m_ptr);
+    m_ptr = ptr;
+  }
+
   //here should be a custom deleter
 private:
   T *m_ptr = nullptr;
+  Deleter m_deleter = Deleter();
 };
 
 #endif
