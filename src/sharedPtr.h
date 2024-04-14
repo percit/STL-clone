@@ -30,8 +30,20 @@ public:
     std::cout << "calling destructor\n";
   }
   //we delete copy, as this should not be allowed
-  SharedPtr(const SharedPtr&) = delete;
-  SharedPtr &operator=(const SharedPtr&) = delete;
+  SharedPtr(const SharedPtr& other) {
+    m_ptr = other.m_ptr;
+    m_refCount = other.m_refCount;
+    if(other.m_ptr != nullptr) {
+      m_refCount++;
+    }
+  }
+  SharedPtr &operator=(const SharedPtr& other) {
+    m_ptr = other.m_ptr;
+    m_refCount = other.m_refCount;
+    if(other.m_ptr != nullptr) {
+      m_refCount++;
+    }
+  }
   //move constructors
   SharedPtr(SharedPtr&& other) noexcept : m_ptr(nullptr) {
     this->swap(other);
@@ -66,6 +78,7 @@ public:
 private:
   T *m_ptr = nullptr;
   Deleter m_deleter = Deleter();
+  unsigned int m_refCount = 0;
 };
 
 #endif
