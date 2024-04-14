@@ -25,11 +25,17 @@ public:
   UniquePtr(const UniquePtr&) = delete;
   UniquePtr &operator=(const UniquePtr&) = delete;
   //move constructors
-  UniquePtr(UniquePtr&& other) noexcept : m_ptr(std::move(other->m_ptr)) {}
+  UniquePtr(UniquePtr&& other) noexcept : m_ptr(nullptr) {
+    this->swap(other);
+  }
   UniquePtr &operator=(UniquePtr&& other) noexcept {
-    if(this == other) return *this;
-    m_ptr = std::move(other->m_ptr);
-    return *this;
+    this->swap(other);//https://codereview.stackexchange.com/questions/163854/my-implementation-for-stdunique-ptr
+    return *this;//I found here that std::move instead of std::swap can cause memory leak if this != nullptr
+  }
+
+  void swap(UniquePtr<T>& other) noexcept {
+    using std::swap;
+    swap(m_ptr, other->m_ptr);
   }
 
 //other functions
