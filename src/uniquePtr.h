@@ -25,8 +25,8 @@ public:
   UniquePtr(const UniquePtr&) = delete;
   UniquePtr &operator=(const UniquePtr&) = delete;
   //move constructors
-  UniquePtr(UniquePtr&& other): m_ptr(std::move(other->m_ptr)) {}
-  UniquePtr &operator=(UniquePtr&& other) {
+  UniquePtr(UniquePtr&& other) noexcept : m_ptr(std::move(other->m_ptr)) {}
+  UniquePtr &operator=(UniquePtr&& other) noexcept {
     if(this == other) return *this;
     m_ptr = std::move(other->m_ptr);
     return *this;
