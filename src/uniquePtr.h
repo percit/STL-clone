@@ -12,8 +12,11 @@
 template <typename T>
 class UniquePtr {
 public:
-  UniquePtr() {
+  UniquePtr(): m_ptr(nullptr){
     std::cout << "calling constructor\n";
+  }
+  UniquePtr(T*& ptr): m_ptr(ptr) {
+     ptr = nullptr;
   }
   ~UniquePtr() {//here we delete
     if(m_ptr != nullptr) {
