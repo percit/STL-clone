@@ -16,8 +16,8 @@ public:
     std::cout << "calling constructor\n";
   }
   ~UniquePtr() {//here we delete
-    if(ptr != nullptr) {
-      delete ptr;
+    if(m_ptr != nullptr) {
+      delete m_ptr;
     }
     std::cout << "calling destructor\n";
   }
@@ -25,26 +25,26 @@ public:
   UniquePtr(const UniquePtr&) = delete;
   UniquePtr &operator=(const UniquePtr&) = delete;
   //move constructors
-  UniquePtr(UniquePtr&& other): ptr(std::move(other->ptr)) {}
+  UniquePtr(UniquePtr&& other): m_ptr(std::move(other->m_ptr)) {}
   UniquePtr &operator=(UniquePtr&& other) {
     if(this == other) return *this;
-    ptr = std::move(other->ptr);
+    m_ptr = std::move(other->m_ptr);
     return *this;
   }
 
 //other functions
 
   void makeUnique(T value){
-    ptr = new T(value);
+    m_ptr = new T(value);
   }
 
   T* get() {
-    return ptr;
+    return m_ptr;
   }
 
   //here should be a custom deleter
 private:
-  T *ptr = nullptr;
+  T *m_ptr = nullptr;
 };
 
 #endif
