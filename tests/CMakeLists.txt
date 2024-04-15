@@ -2,9 +2,9 @@ find_package(GTest REQUIRED)
 
 include_directories(${CMAKE_SOURCE_DIR}/src)
 
-set(TEST1 "test1")
+set(TEST1 "uniquePtr")
 add_executable(${TEST1}
-    ../tests/test1.cpp
+    ../tests/uniquePtr.cpp
 )
 
 target_link_libraries(${TEST1}
@@ -12,9 +12,9 @@ target_link_libraries(${TEST1}
     GTest::Main
 )
 
-set(TEST2 "test2")
+set(TEST2 "sharedPtr")
 add_executable(${TEST2}
-    ../tests/test2.cpp
+    ../tests/sharedPtr.cpp
 )
 
 target_link_libraries(${TEST2}
