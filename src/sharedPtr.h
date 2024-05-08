@@ -23,7 +23,7 @@ public:
       m_refCount++;
     }
   }
-  ~SharedPtr() {//here we delete
+  ~SharedPtr() noexcept {
     cleanUp();
     std::cout << "calling destructor\n";
   }
@@ -84,10 +84,8 @@ public:
 private:
   void cleanUp() {
     m_refCount--;
-    if(m_refCount == 0) {
-      if(m_ptr != nullptr) {
-        m_deleter(m_ptr);
-      }
+    if(m_refCount == 0 && m_ptr != nullptr) {
+      m_deleter(m_ptr);
     }
   }
 

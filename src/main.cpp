@@ -16,11 +16,6 @@ int main()
     p.makeUnique(1);
 
 
-   
-
-
-
-
     //aliasing constructor example:
     SharedPtr<MyClass> ptr1(new MyClass());
     SharedPtr<MyClass> ptr2(ptr1, new MyClass());
