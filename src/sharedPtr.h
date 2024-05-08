@@ -56,8 +56,7 @@ public:
   }
 
   void swap(SharedPtr<T>& other) noexcept {
-    using std::swap;
-    swap(m_ptr, other->m_ptr);
+    std::swap(m_ptr, other.m_ptr);
   }
 
   T* operator->() const noexcept {return m_ptr;}
