@@ -34,8 +34,7 @@ public:
   }
 
   void swap(UniquePtr<T>& other) noexcept {
-    using std::swap;
-    swap(m_ptr, other->m_ptr);
+    std::swap(m_ptr, other.m_ptr);
   }
 
   T* operator->() const noexcept {return m_ptr;}
@@ -52,6 +51,14 @@ public:
   void reset(T* ptr) {
     m_deleter(m_ptr);
     m_ptr = ptr;
+  }
+
+  inline void release(void) noexcept {
+      m_ptr = nullptr;
+  }
+
+  explicit operator bool() const {
+    return (m_ptr != nullptr) ? true : false;
   }
 
 private:
