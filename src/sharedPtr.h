@@ -2,30 +2,28 @@
 #define SHARED_PTR_H
 
 
-//add counter which should go up when I use copy constructors (I think)
-/*
-template <typename T>
-struct DefaultDeleter {
-  DefaultDeleter() = default;
-  DefaultDeleter(const DefaultDeleter& other) = default;
-  void operator()(T* ptr) const {delete ptr;}//using m_deleter with () overload and using it as deleter
-};
-*/
-
 #include <iostream>
 #include "deleter.h"
 
 template <typename T, typename Deleter = DefaultDeleter<T>>
 class SharedPtr {
 public:
-  SharedPtr(): m_ptr(nullptr) {
+  SharedPtr() noexcept : m_ptr(nullptr) {
     std::cout << "calling constructor\n";
   }
-  SharedPtr(T* ptr): m_ptr(ptr), m_refCount(1) {
+  SharedPtr(T* ptr) noexcept : m_ptr(ptr), m_refCount(1) {
      ptr = nullptr;
   }
-  SharedPtr(T* ptr, Deleter deleter): m_ptr(ptr), m_refCount(1), m_deleter(deleter) {}
-  ~SharedPtr() {//here we delete
+  //constructor with custom deleter
+  SharedPtr(T* ptr, Deleter deleter) noexcept : m_ptr(ptr), m_refCount(1), m_deleter(deleter) {}
+  //aliasing constructor
+  template< class Y >
+  SharedPtr(const SharedPtr<Y>& other, T* ptr ) noexcept : m_ptr(ptr), m_refCount(other.m_refCount) {
+    if(other.m_ptr != nullptr) {
+      m_refCount++;
+    }
+  }
+  ~SharedPtr() noexcept {
     cleanUp();
     std::cout << "calling destructor\n";
   }
@@ -58,8 +56,7 @@ public:
   }
 
   void swap(SharedPtr<T>& other) noexcept {
-    using std::swap;
-    swap(m_ptr, other->m_ptr);
+    std::swap(m_ptr, other.m_ptr);
   }
 
   T* operator->() const noexcept {return m_ptr;}
@@ -86,14 +83,10 @@ public:
 private:
   void cleanUp() {
     m_refCount--;
-    if(m_refCount == 0) {
-      if(m_ptr != nullptr) {
-        m_deleter(m_ptr);
-      }
+    if(m_refCount == 0 && m_ptr != nullptr) {
+      m_deleter(m_ptr);
     }
   }
-
-
 
 private:
   T *m_ptr = nullptr;

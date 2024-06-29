@@ -1,3 +1,3 @@
-add_executable(hello-world 
+add_executable(stl-clone
     main.cpp
 )

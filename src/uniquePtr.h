@@ -1,22 +1,6 @@
 #ifndef UNIQUE_PTR_H
 #define UNIQUE_PTR_H
 
-
-//constructor from derieved type 
-//casting to bool
-//checking if empty
-//guaranteeing delete on construction failure
-//you should add type traits, or sfinae or other template mechanisms just to try them out, just add some cout to them, to know you calling
-//the good functions
-/*
-template <typename T>
-struct DefaultDeleter {
-  DefaultDeleter() = default;
-  DefaultDeleter(const DefaultDeleter& other) = default;
-  void operator()(T* ptr) const {delete ptr;}//using m_deleter with () overload and using it as deleter
-};
-*/
-
 #include <iostream>
 #include "deleter.h"
 
@@ -24,14 +8,14 @@ struct DefaultDeleter {
 template <typename T, typename Deleter = DefaultDeleter<T>>
 class UniquePtr {
 public:
-  UniquePtr(): m_ptr(nullptr) {
+  UniquePtr() noexcept : m_ptr(nullptr) {
     std::cout << "calling constructor\n";
   }
-  UniquePtr(T* ptr): m_ptr(ptr) {
+  UniquePtr(T* ptr) noexcept : m_ptr(ptr) {
      ptr = nullptr;
   }
-  UniquePtr(T* ptr, Deleter deleter): m_ptr(ptr), m_deleter(deleter) {}
-  ~UniquePtr() {//here we delete
+  UniquePtr(T* ptr, Deleter deleter) noexcept : m_ptr(ptr), m_deleter(deleter) {}
+  ~UniquePtr() {
     if(m_ptr != nullptr) {
       m_deleter(m_ptr);
     }
@@ -50,8 +34,7 @@ public:
   }
 
   void swap(UniquePtr<T>& other) noexcept {
-    using std::swap;
-    swap(m_ptr, other->m_ptr);
+    std::swap(m_ptr, other.m_ptr);
   }
 
   T* operator->() const noexcept {return m_ptr;}
@@ -68,6 +51,14 @@ public:
   void reset(T* ptr) {
     m_deleter(m_ptr);
     m_ptr = ptr;
+  }
+
+  inline void release(void) noexcept {
+      m_ptr = nullptr;
+  }
+
+  explicit operator bool() const {
+    return (m_ptr != nullptr) ? true : false;
   }
 
 private:
